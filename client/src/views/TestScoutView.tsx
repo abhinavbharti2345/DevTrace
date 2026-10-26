@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { CodebaseIndex, TestRecommendation } from '../types/index.js';
 
 interface TestScoutViewProps {
@@ -16,15 +16,51 @@ export const TestScoutView: React.FC<TestScoutViewProps> = ({
   isLoading,
   onViewFile,
 }) => {
-  const allSourceFiles = Object.keys(index.files).filter((f) => !index.files[f].isTest);
-  const [selectedFiles, setSelectedFiles] = useState<string[]>(
-    allSourceFiles.slice(0, 2)
+  const allSourceFiles = useMemo(
+    () => Object.keys(index.files).filter((f) => !index.files[f].isTest),
+    [index.files]
   );
 
+  const nodeMap = useMemo(
+    () => new Map(index.nodes.map((n) => [n.id, n])),
+    [index.nodes]
+  );
+
+  const [selectedFiles, setSelectedFiles] = useState<string[]>(allSourceFiles.slice(0, 2));
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Filter files by search query
+  const filteredFiles = useMemo(() => {
+    if (!searchQuery.trim()) return allSourceFiles;
+    const query = searchQuery.toLowerCase().trim();
+    return allSourceFiles.filter((f) => f.toLowerCase().includes(query));
+  }, [allSourceFiles, searchQuery]);
+
+  // Check if all filtered files are currently selected
+  const allFilteredSelected =
+    filteredFiles.length > 0 && filteredFiles.every((f) => selectedFiles.includes(f));
+
+  // Toggle individual file
   const toggleFile = (f: string) => {
     setSelectedFiles((prev) =>
       prev.includes(f) ? prev.filter((item) => item !== f) : [...prev, f]
     );
+  };
+
+  // Select all (or select all matching filtered files if searching)
+  const handleSelectAll = () => {
+    if (allFilteredSelected) {
+      // Deselect filtered files
+      setSelectedFiles((prev) => prev.filter((f) => !filteredFiles.includes(f)));
+    } else {
+      // Add all filtered files to selection
+      setSelectedFiles((prev) => Array.from(new Set([...prev, ...filteredFiles])));
+    }
+  };
+
+  // Clear all selections
+  const handleClearAll = () => {
+    setSelectedFiles([]);
   };
 
   const handleRun = () => {
@@ -34,7 +70,7 @@ export const TestScoutView: React.FC<TestScoutViewProps> = ({
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-[1400px] mx-auto w-full font-sans">
+    <div className="p-6 space-y-6 max-w-[1400px] mx-auto w-full font-sans select-none">
       {/* Header */}
       <div>
         <div className="flex items-center gap-2">
@@ -53,45 +89,123 @@ export const TestScoutView: React.FC<TestScoutViewProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left: Changed Files Selector (5 cols) */}
-        <div className="lg:col-span-5 bg-surface-container-low border border-outline-variant/60 rounded-lg p-4 space-y-3">
-          <div className="flex items-center justify-between border-b border-outline-variant pb-2">
-            <h2 className="text-xs font-semibold uppercase tracking-wider font-mono text-on-surface">
-              Select Modified Files ({selectedFiles.length})
-            </h2>
-            <button
-              onClick={() => setSelectedFiles([])}
-              className="text-[11px] text-outline hover:text-on-surface font-mono"
-            >
-              Clear All
-            </button>
+        <div className="lg:col-span-5 bg-surface-container-low border border-outline-variant/60 rounded-xl p-4 space-y-3.5 shadow-sm">
+          {/* Header & Batch Action Controls */}
+          <div className="flex items-center justify-between border-b border-outline-variant pb-2.5">
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-wider font-mono text-on-surface flex items-center gap-1.5">
+                <span>Select Modified Files</span>
+                <span className="text-[10px] bg-primary/10 text-primary border border-primary/30 px-1.5 py-0.2 rounded-full">
+                  {selectedFiles.length} of {allSourceFiles.length}
+                </span>
+              </h2>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSelectAll}
+                className="text-[11px] font-mono text-primary hover:text-primary/80 font-medium px-2 py-0.5 rounded bg-primary/10 hover:bg-primary/20 border border-primary/30 transition-all flex items-center gap-1"
+                title={allFilteredSelected ? 'Deselect filtered files' : 'Select all filtered files'}
+              >
+                <span className="material-symbols-outlined text-[13px]">
+                  {allFilteredSelected ? 'deselect' : 'select_all'}
+                </span>
+                <span>{allFilteredSelected ? 'Deselect All' : 'Select All'}</span>
+              </button>
+
+              {selectedFiles.length > 0 && (
+                <button
+                  onClick={handleClearAll}
+                  className="text-[11px] font-mono text-outline hover:text-error hover:bg-error-container/20 px-1.5 py-0.5 rounded transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="space-y-1 max-h-[380px] overflow-y-auto">
-            {allSourceFiles.map((f) => {
+          {/* Search Box to find specific files */}
+          <div className="relative">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search files (e.g. auth, modal, service, .ts)..."
+              className="w-full bg-surface-container-high border border-outline-variant rounded-lg pl-8 pr-8 py-1.5 text-xs font-mono text-on-surface placeholder:text-outline focus:outline-none focus:border-primary transition-colors"
+            />
+            <span className="material-symbols-outlined text-[16px] text-outline absolute left-2.5 top-2 pointer-events-none">
+              search
+            </span>
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-2 text-outline hover:text-on-surface p-0.5 rounded"
+              >
+                <span className="material-symbols-outlined text-[14px]">close</span>
+              </button>
+            )}
+          </div>
+
+          {/* Files List with check states and role badges */}
+          <div className="space-y-1 max-h-[380px] overflow-y-auto pr-0.5">
+            {filteredFiles.map((f) => {
               const isSelected = selectedFiles.includes(f);
+              const node = nodeMap.get(f);
+              const fileRole = node?.role || 'file';
+
               return (
                 <div
                   key={f}
                   onClick={() => toggleFile(f)}
-                  className={`p-2 rounded font-mono text-xs cursor-pointer flex items-center justify-between transition-colors ${
+                  className={`p-2 rounded-lg font-mono text-xs cursor-pointer flex items-center justify-between transition-all ${
                     isSelected
-                      ? 'bg-surface-container-high text-primary border border-primary/40 font-medium'
-                      : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant'
+                      ? 'bg-surface-container-high text-primary border border-primary/40 font-medium shadow-sm'
+                      : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant border border-transparent'
                   }`}
                 >
-                  <span className="truncate max-w-[300px]">{f}</span>
-                  <span className="material-symbols-outlined text-[16px]">
+                  <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+                    <span
+                      className={`font-mono text-[9px] uppercase px-1.5 py-0.5 rounded border shrink-0 ${
+                        fileRole === 'service'
+                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                          : fileRole === 'route'
+                          ? 'bg-sky-500/10 text-sky-400 border-sky-500/30'
+                          : fileRole === 'model'
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                          : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30'
+                      }`}
+                    >
+                      {fileRole.slice(0, 4)}
+                    </span>
+                    <span className="truncate">{f}</span>
+                  </div>
+
+                  <span className="material-symbols-outlined text-[18px] shrink-0 text-primary">
                     {isSelected ? 'check_box' : 'check_box_outline_blank'}
                   </span>
                 </div>
               );
             })}
+
+            {filteredFiles.length === 0 && (
+              <div className="text-center py-8 text-outline text-xs font-mono space-y-2">
+                <span className="material-symbols-outlined text-2xl text-outline/60">search_off</span>
+                <p>No files match "{searchQuery}"</p>
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="text-primary hover:underline text-[11px]"
+                >
+                  Clear search filter
+                </button>
+              </div>
+            )}
           </div>
 
+          {/* Action Trigger Button */}
           <button
             onClick={handleRun}
             disabled={isLoading || selectedFiles.length === 0}
-            className="w-full bg-primary-container text-on-primary-container hover:brightness-110 py-2 rounded text-xs font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+            className="w-full bg-primary-container text-on-primary-container hover:brightness-110 py-2.5 rounded-lg text-xs font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
           >
             {isLoading ? (
               <>
@@ -110,8 +224,8 @@ export const TestScoutView: React.FC<TestScoutViewProps> = ({
         </div>
 
         {/* Right: Recommendations (7 cols) */}
-        <div className="lg:col-span-7 bg-surface-container-low border border-outline-variant/60 rounded-lg p-4 space-y-3">
-          <div className="flex items-center justify-between border-b border-outline-variant pb-2">
+        <div className="lg:col-span-7 bg-surface-container-low border border-outline-variant/60 rounded-xl p-4 space-y-3.5 shadow-sm">
+          <div className="flex items-center justify-between border-b border-outline-variant pb-2.5">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-[18px] text-secondary">
                 verified
@@ -127,7 +241,7 @@ export const TestScoutView: React.FC<TestScoutViewProps> = ({
             {recommendations.map((rec) => (
               <div
                 key={rec.testFile}
-                className="p-3 bg-surface-container rounded border border-outline-variant/60 space-y-2"
+                className="p-3 bg-surface-container rounded-lg border border-outline-variant/60 space-y-2"
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
@@ -143,39 +257,44 @@ export const TestScoutView: React.FC<TestScoutViewProps> = ({
                     <span className="font-mono text-xs text-on-surface font-semibold truncate">
                       {rec.testFile}
                     </span>
+                    <span className="text-[10px] text-outline font-mono bg-surface-container-high px-1.5 py-0.5 rounded border border-outline-variant/40">
+                      {rec.distance === 1 ? '1 hop (Direct)' : `${rec.distance} hops`}
+                    </span>
                   </div>
 
                   <button
                     onClick={() => onViewFile(rec.testFile)}
                     className="text-xs text-primary hover:underline inline-flex items-center gap-1 font-sans shrink-0"
                   >
-                    <span>View Test Code</span>
-                    <span className="material-symbols-outlined text-[13px]">open_in_new</span>
+                    <span className="material-symbols-outlined text-[14px]">code</span>
+                    <span>View Test Suite</span>
                   </button>
                 </div>
 
-                <p className="text-xs text-on-surface-variant font-sans">{rec.reason}</p>
-
-                <div className="flex items-center justify-between gap-2 bg-surface-container-lowest p-2 rounded border border-outline-variant/50">
-                  <code className="font-mono text-[11px] text-on-surface truncate">
-                    {rec.testRunCommand}
-                  </code>
-                  <button
-                    onClick={() => navigator.clipboard.writeText(rec.testRunCommand)}
-                    className="text-xs text-outline hover:text-on-surface inline-flex items-center gap-1 font-mono shrink-0 bg-surface-container px-2 py-0.5 rounded border border-outline-variant"
-                    title="Copy command"
-                  >
-                    <span>Copy</span>
-                    <span className="material-symbols-outlined text-[13px]">content_copy</span>
-                  </button>
+                <div className="text-xs text-on-surface-variant flex items-center gap-2">
+                  <span className="text-[11px] text-outline font-mono">Reason:</span>
+                  <span className="font-sans text-[11px]">{rec.reason}</span>
                 </div>
+
+                {/* Command snippet */}
+                {rec.testRunCommand && (
+                  <div className="flex items-center justify-between bg-surface-container-high px-2 py-1 rounded text-[11px] font-mono text-outline">
+                    <span>Run: <code className="text-secondary">{rec.testRunCommand}</code></span>
+                  </div>
+                )}
               </div>
             ))}
 
             {recommendations.length === 0 && (
-              <p className="text-xs text-outline py-8 text-center font-sans">
-                Select one or more modified files and click "Recommend Tests" to evaluate test coverage.
-              </p>
+              <div className="text-center py-16 text-outline font-sans text-xs space-y-1">
+                <span className="material-symbols-outlined text-3xl text-outline/60 mb-2">
+                  checklist
+                </span>
+                <p>Select one or more modified files on the left and click "Recommend Tests".</p>
+                <p className="text-[11px] text-outline/70">
+                  TestScout will analyze reverse dependency graphs to find test suites that exercise your code.
+                </p>
+              </div>
             )}
           </div>
         </div>
