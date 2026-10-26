@@ -562,17 +562,61 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
     <div className="h-[calc(100vh-52px)] flex flex-col font-sans select-none relative overflow-hidden">
       {/* Top Controls Bar */}
       <div className="h-12 bg-surface-container-low border-b border-outline-variant px-4 flex items-center justify-between gap-3 z-10 shrink-0">
+        {/* Left Side: Title, Search & Role Filters */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mr-1">
             <span className="material-symbols-outlined text-[18px] text-primary">hub</span>
-            <span className="text-xs font-semibold text-on-surface">Obsidian Knowledge Graph</span>
+            <span className="text-xs font-semibold text-on-surface whitespace-nowrap">
+              Obsidian Knowledge Graph
+            </span>
+            <span className="text-[10px] font-mono text-outline bg-surface-container px-1.5 py-0.5 rounded-full border border-outline-variant">
+              {filteredGraphNodes.length} nodes
+            </span>
           </div>
 
+          {/* Search Box */}
+          <div className="relative">
+            <input
+              type="text"
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              placeholder="Search notes..."
+              className="bg-surface-container-high border border-outline-variant rounded-full pl-7 pr-3 py-1 text-xs text-on-surface placeholder:text-outline focus:outline-none focus:border-primary w-36 font-mono"
+            />
+            <span className="material-symbols-outlined text-[14px] text-outline absolute left-2 top-1.5 pointer-events-none">
+              search
+            </span>
+          </div>
+
+          {/* Role Filter Chips */}
+          <div className="flex items-center gap-1 bg-surface-container p-0.5 rounded-full border border-outline-variant text-[10px] font-mono">
+            {['all', 'route', 'service', 'model', 'util', 'test'].map((role) => (
+              <button
+                key={role}
+                onClick={() => setRoleFilter(role)}
+                className={`px-2 py-0.5 rounded-full uppercase transition-colors ${
+                  roleFilter === role
+                    ? 'bg-surface-container-highest text-primary font-medium shadow-sm'
+                    : 'text-outline hover:text-on-surface'
+                }`}
+              >
+                {role}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Right Side: Graph Customize Controls */}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase font-mono text-outline tracking-wider hidden xl:inline-block mr-1">
+            Customize Graph:
+          </span>
+
           {/* Physics Simulation Switcher */}
-          <div className="flex items-center gap-1 bg-surface-container p-0.5 rounded-lg border border-outline-variant text-[11px] font-mono">
+          <div className="flex items-center gap-0.5 bg-surface-container p-0.5 rounded-lg border border-outline-variant text-[11px] font-mono">
             <button
               onClick={() => setLayoutMode('force')}
-              title="Natural Physics Force Simulation (Organic clustering)"
+              title="D3 Natural Physics Simulation"
               className={`px-2.5 py-0.5 rounded transition-all flex items-center gap-1 ${
                 layoutMode === 'force'
                   ? 'bg-primary-container text-on-primary-container font-medium shadow-sm'
@@ -580,7 +624,7 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
               }`}
             >
               <span className="material-symbols-outlined text-[13px]">bubble_chart</span>
-              <span>Obsidian Physics</span>
+              <span>Physics</span>
             </button>
             <button
               onClick={() => setLayoutMode('constellation')}
@@ -592,22 +636,21 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
               }`}
             >
               <span className="material-symbols-outlined text-[13px]">scatter_plot</span>
-              <span>Constellation</span>
+              <span>Orbit</span>
             </button>
           </div>
 
-          {/* Reset Physics / Reseed */}
+          {/* Reset Physics Button */}
           <button
             onClick={() => setReseedTrigger((prev) => prev + 1)}
-            title="Re-balance physics and reset node positions"
-            className="px-2 py-1 rounded-lg border border-outline-variant bg-surface-container hover:bg-surface-container-high text-outline hover:text-on-surface text-[11px] font-mono flex items-center gap-1 transition-colors"
+            title="Reset & Re-balance Physics"
+            className="p-1 rounded-lg border border-outline-variant bg-surface-container hover:bg-surface-container-high text-outline hover:text-on-surface transition-colors flex items-center justify-center"
           >
-            <span className="material-symbols-outlined text-[13px]">restart_alt</span>
-            <span>Reset Physics</span>
+            <span className="material-symbols-outlined text-[15px]">restart_alt</span>
           </button>
 
           {/* Node Appearance Switcher (Orbs vs Pills) */}
-          <div className="flex items-center gap-1 bg-surface-container p-0.5 rounded-lg border border-outline-variant text-[11px] font-mono">
+          <div className="flex items-center gap-0.5 bg-surface-container p-0.5 rounded-lg border border-outline-variant text-[11px] font-mono">
             <button
               onClick={() => setNodeDisplay('orbs')}
               title="True Obsidian Glowing Orbs"
@@ -618,7 +661,7 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
               }`}
             >
               <span className="material-symbols-outlined text-[13px]">lens</span>
-              <span>Obsidian Orbs</span>
+              <span>Orbs</span>
             </button>
             <button
               onClick={() => setNodeDisplay('pills')}
@@ -635,10 +678,10 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
           </div>
 
           {/* Link Connection Style Switcher */}
-          <div className="flex items-center gap-1 bg-surface-container p-0.5 rounded-lg border border-outline-variant text-[11px] font-mono">
+          <div className="flex items-center gap-0.5 bg-surface-container p-0.5 rounded-lg border border-outline-variant text-[11px] font-mono">
             <button
               onClick={() => setEdgeStyle('straight')}
-              title="Obsidian direct straight laser links"
+              title="Obsidian Direct Laser Links"
               className={`px-2 py-0.5 rounded transition-all flex items-center gap-1 ${
                 edgeStyle === 'straight'
                   ? 'bg-surface-bright text-primary font-medium shadow-sm'
@@ -646,11 +689,11 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
               }`}
             >
               <span className="material-symbols-outlined text-[13px]">show_chart</span>
-              <span>Laser Links</span>
+              <span>Laser</span>
             </button>
             <button
               onClick={() => setEdgeStyle('curved')}
-              title="Gentle organic curved arcs"
+              title="Gentle Organic Curved Arcs"
               className={`px-2 py-0.5 rounded transition-all flex items-center gap-1 ${
                 edgeStyle === 'curved'
                   ? 'bg-surface-bright text-primary font-medium shadow-sm'
@@ -658,35 +701,8 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
               }`}
             >
               <span className="material-symbols-outlined text-[13px]">gesture</span>
-              <span>Curved Arcs</span>
+              <span>Arc</span>
             </button>
-          </div>
-        </div>
-
-        {/* Filter chips & Search */}
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={searchFilter}
-            onChange={(e) => setSearchFilter(e.target.value)}
-            placeholder="Search notes / files..."
-            className="bg-surface-container-high border border-outline-variant rounded-full px-3 py-1 text-xs text-on-surface placeholder:text-outline focus:outline-none focus:border-primary w-40 font-mono"
-          />
-
-          <div className="flex items-center gap-1 bg-surface-container p-0.5 rounded-full border border-outline-variant text-[11px] font-mono">
-            {['all', 'route', 'service', 'model', 'util', 'test'].map((role) => (
-              <button
-                key={role}
-                onClick={() => setRoleFilter(role)}
-                className={`px-2.5 py-0.5 rounded-full uppercase transition-colors ${
-                  roleFilter === role
-                    ? 'bg-surface-container-highest text-primary font-medium'
-                    : 'text-outline hover:text-on-surface'
-                }`}
-              >
-                {role}
-              </button>
-            ))}
           </div>
         </div>
       </div>
