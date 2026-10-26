@@ -89,16 +89,17 @@ const roleGlowColors: Record<
   },
 };
 
-// 1. True Obsidian Starfield Orb Node (Compact Glowing Celestial Node)
+// 1. True Obsidian Starfield Orb Node (Fully draggable with grab cursors)
 const ObsidianOrbNode = memo(({ data }: NodeProps<Node<CodeModuleNodeData>>) => {
   const { node, isHighlighted, isSelected, isDimmed, isNeighbor } = data;
   const theme = roleGlowColors[node.role] || roleGlowColors.service;
 
-  // Connection degree determines node mass/radius (Obsidian core dynamic)
+  // Connection degree determines node mass/radius
   const degree = node.importersCount + node.importsCount;
-  const orbDiameter = Math.max(18, Math.min(34, 18 + degree * 2));
+  const orbDiameter = Math.max(20, Math.min(38, 20 + degree * 2));
 
-  let containerClasses = 'relative flex flex-col items-center justify-center select-none cursor-pointer group';
+  let containerClasses =
+    'relative flex flex-col items-center justify-center select-none cursor-grab active:cursor-grabbing group p-2';
   if (isDimmed) {
     containerClasses += ' opacity-25 blur-[0.3px] hover:opacity-100 hover:blur-0 transition-all';
   } else {
@@ -107,7 +108,7 @@ const ObsidianOrbNode = memo(({ data }: NodeProps<Node<CodeModuleNodeData>>) => 
 
   return (
     <div className={containerClasses}>
-      {/* Centered Invisible Handles for Pure 360-degree Radial Connections */}
+      {/* Centered Invisible Handles for Direct 360-degree Radial Vectors */}
       <Handle
         type="target"
         position={Position.Top}
@@ -127,7 +128,7 @@ const ObsidianOrbNode = memo(({ data }: NodeProps<Node<CodeModuleNodeData>>) => 
           width: `${orbDiameter}px`,
           height: `${orbDiameter}px`,
         }}
-        className={`rounded-full ${theme.dot} transition-all duration-200 relative flex items-center justify-center ${
+        className={`rounded-full ${theme.dot} transition-all duration-200 relative flex items-center justify-center pointer-events-none ${
           isSelected
             ? 'ring-4 ring-primary shadow-[0_0_24px_rgba(172,202,233,0.95)] scale-125 z-30'
             : isHighlighted
@@ -137,11 +138,10 @@ const ObsidianOrbNode = memo(({ data }: NodeProps<Node<CodeModuleNodeData>>) => 
             : `${theme.glow} group-hover:scale-125 group-hover:ring-2 group-hover:ring-white/80`
         }`}
       >
-        {/* Core hot center */}
         <span className="w-1.5 h-1.5 rounded-full bg-white/90 shadow-sm" />
       </div>
 
-      {/* Floating Monospace Label (Clean, airy typography like Obsidian) */}
+      {/* Floating Monospace Label */}
       <div className="mt-1.5 flex flex-col items-center pointer-events-none">
         <span
           className={`font-mono text-xs font-semibold px-2 py-0.5 rounded-md backdrop-blur-md transition-all shadow-sm ${
@@ -165,32 +165,32 @@ const ObsidianOrbNode = memo(({ data }: NodeProps<Node<CodeModuleNodeData>>) => 
 });
 ObsidianOrbNode.displayName = 'ObsidianOrbNode';
 
-// 2. Obsidian Pill Node (Optional Expanded Mode)
+// 2. Obsidian Pill Node (Optional Expanded Mode, fully draggable)
 const ObsidianPillNode = memo(({ data }: NodeProps<Node<CodeModuleNodeData>>) => {
   const { node, isHighlighted, isSelected, isDimmed, isNeighbor } = data;
   const theme = roleGlowColors[node.role] || roleGlowColors.service;
 
   let containerClasses =
-    'bg-surface-container/90 backdrop-blur-md border border-outline-variant/70 hover:border-primary/80';
+    'px-3.5 py-2 rounded-full backdrop-blur-md border border-outline-variant/70 hover:border-primary/80 select-none cursor-grab active:cursor-grabbing transition-all duration-200 flex items-center gap-2 shadow-lg group relative min-w-[170px] max-w-[240px]';
 
   if (isSelected) {
-    containerClasses =
-      'bg-surface-container-high border-primary ring-2 ring-primary/60 shadow-[0_0_22px_rgba(172,202,233,0.45)] scale-105 z-30 opacity-100';
+    containerClasses +=
+      ' bg-surface-container-high border-primary ring-2 ring-primary/60 shadow-[0_0_22px_rgba(172,202,233,0.45)] scale-105 z-30 opacity-100';
   } else if (isHighlighted) {
-    containerClasses =
-      'bg-surface-container-high border-secondary ring-2 ring-secondary/60 shadow-[0_0_22px_rgba(121,218,166,0.45)] scale-105 z-20 opacity-100';
+    containerClasses +=
+      ' bg-surface-container-high border-secondary ring-2 ring-secondary/60 shadow-[0_0_22px_rgba(121,218,166,0.45)] scale-105 z-20 opacity-100';
   } else if (isNeighbor) {
-    containerClasses =
-      'bg-surface-container-high border-primary/80 ring-1 ring-primary/40 shadow-[0_0_15px_rgba(172,202,233,0.3)] z-10 opacity-100';
+    containerClasses +=
+      ' bg-surface-container-high border-primary/80 ring-1 ring-primary/40 shadow-[0_0_15px_rgba(172,202,233,0.3)] z-10 opacity-100';
   } else if (isDimmed) {
-    containerClasses =
-      'bg-surface-container/40 border-outline-variant/30 opacity-25 blur-[0.2px] hover:opacity-100 hover:blur-0';
+    containerClasses +=
+      ' bg-surface-container/40 border-outline-variant/30 opacity-25 blur-[0.2px] hover:opacity-100 hover:blur-0';
+  } else {
+    containerClasses += ' bg-surface-container/90 opacity-100';
   }
 
   return (
-    <div
-      className={`px-3 py-1.5 rounded-full ${containerClasses} text-left font-sans select-none cursor-pointer transition-all duration-200 flex items-center gap-2 shadow-lg group relative min-w-[170px] max-w-[240px]`}
-    >
+    <div className={containerClasses}>
       <Handle
         type="target"
         position={Position.Top}
@@ -204,9 +204,9 @@ const ObsidianPillNode = memo(({ data }: NodeProps<Node<CodeModuleNodeData>>) =>
         className="!w-0 !h-0 !border-0"
       />
 
-      <span className={`w-2.5 h-2.5 rounded-full ${theme.dot} ${theme.glow} shrink-0`} />
+      <span className={`w-2.5 h-2.5 rounded-full ${theme.dot} ${theme.glow} shrink-0 pointer-events-none`} />
 
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 pointer-events-none">
         <div className="font-mono text-xs font-semibold text-on-surface truncate group-hover:text-primary transition-colors">
           {node.label}
         </div>
@@ -216,7 +216,7 @@ const ObsidianPillNode = memo(({ data }: NodeProps<Node<CodeModuleNodeData>>) =>
       </div>
 
       <span
-        className={`font-mono text-[9px] uppercase px-1.5 py-0.5 rounded-full border ${theme.badge} shrink-0`}
+        className={`font-mono text-[9px] uppercase px-1.5 py-0.5 rounded-full border ${theme.badge} shrink-0 pointer-events-none`}
       >
         {node.role.slice(0, 4)}
       </span>
@@ -237,7 +237,6 @@ const ObsidianStraightEdge = memo(
     const ux = dx / dist;
     const uy = dy / dist;
 
-    // Radius offset to clip neatly outside the orb / pill perimeter
     const sourceOffset = 18;
     const targetOffset = 22;
 
@@ -330,6 +329,7 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
   const [layoutMode, setLayoutMode] = useState<'force' | 'constellation'>('force');
   const [nodeDisplay, setNodeDisplay] = useState<'orbs' | 'pills'>('orbs');
   const [edgeStyle, setEdgeStyle] = useState<'straight' | 'curved'>('straight');
+  const [reseedTrigger, setReseedTrigger] = useState<number>(0);
 
   const activeNodeId = hoveredNodeId || selectedNodeId;
 
@@ -355,7 +355,7 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
     return neighbors;
   }, [activeNodeId, index.edges]);
 
-  // Dynamic D3 Force Simulation (Real Obsidian Physics) or Constellation
+  // Dynamic D3 Force Simulation (Real Obsidian Physics)
   const computedPositions = useMemo(() => {
     if (filteredGraphNodes.length === 0) return new Map<string, { x: number; y: number }>();
 
@@ -364,13 +364,12 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
     if (layoutMode === 'force') {
       const validNodeIds = new Set(filteredGraphNodes.map((n) => n.id));
       const simNodes: D3SimNode[] = filteredGraphNodes.map((n, i) => {
-        // Initial circular seed to break symmetry
         const angle = (i / filteredGraphNodes.length) * 2 * Math.PI;
         return {
           id: n.id,
           graphNode: n,
-          x: 500 + Math.cos(angle) * 220,
-          y: 350 + Math.sin(angle) * 180,
+          x: 520 + Math.cos(angle) * 240,
+          y: 360 + Math.sin(angle) * 200,
         };
       });
 
@@ -386,25 +385,24 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
           'link',
           forceLink(simLinks)
             .id((d: any) => d.id)
-            .distance(160)
+            .distance(170)
             .strength(0.8)
         )
-        .force('charge', forceManyBody().strength(-550).distanceMax(600))
+        .force('charge', forceManyBody().strength(-600).distanceMax(700))
         .force('collide', forceCollide().radius(75).iterations(2))
         .force('center', forceCenter(520, 360))
         .stop();
 
-      // Run 140 ticks synchronously for instant, organic physics layout
-      for (let i = 0; i < 140; ++i) {
+      for (let i = 0; i < 150; ++i) {
         simulation.tick();
       }
 
       simNodes.forEach((sn) => {
-        positions.set(sn.id, { x: sn.x || 500, y: sn.y || 350 });
+        positions.set(sn.id, { x: sn.x || 520, y: sn.y || 360 });
       });
     } else {
       // Radial Constellation
-      const centerX = 500;
+      const centerX = 520;
       const centerY = 360;
       const innerOrbit: GraphNode[] = [];
       const midOrbit: GraphNode[] = [];
@@ -436,12 +434,15 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
     }
 
     return positions;
-  }, [filteredGraphNodes, index.edges, layoutMode]);
+  }, [filteredGraphNodes, index.edges, layoutMode, reseedTrigger]);
 
-  // Construct React Flow Nodes
-  const initialNodes: Node<CodeModuleNodeData>[] = useMemo(() => {
-    return filteredGraphNodes.map((node) => {
-      const pos = computedPositions.get(node.id) || { x: 500, y: 350 };
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node<CodeModuleNodeData>>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+
+  // 1. Initial Position Assignment (Only runs on layoutMode change, filter change, or reseed)
+  useEffect(() => {
+    const initialNodesList: Node<CodeModuleNodeData>[] = filteredGraphNodes.map((node) => {
+      const pos = computedPositions.get(node.id) || { x: 520, y: 360 };
       const isSelected = selectedNodeId === node.id;
       const isHighlighted = highlightedNodes.includes(node.id);
       const isNeighbor = activeNodeId !== null && connectedNeighbors.has(node.id);
@@ -461,21 +462,53 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
         },
       };
     });
-  }, [
-    filteredGraphNodes,
-    computedPositions,
-    highlightedNodes,
-    selectedNodeId,
-    activeNodeId,
-    connectedNeighbors,
-    nodeDisplay,
-  ]);
 
-  // Construct React Flow Edges
-  const initialEdges: Edge[] = useMemo(() => {
+    setNodes(initialNodesList);
+  }, [computedPositions, layoutMode, setNodes]);
+
+  // 2. State/Hover/Display Sync: Preserves current user-dragged node.position!
+  useEffect(() => {
+    setNodes((currentNodes) =>
+      currentNodes.map((n) => {
+        const isSelected = selectedNodeId === n.id;
+        const isHighlighted = highlightedNodes.includes(n.id);
+        const isNeighbor = activeNodeId !== null && connectedNeighbors.has(n.id);
+        const isDimmed = activeNodeId !== null && !connectedNeighbors.has(n.id);
+        const targetType = nodeDisplay === 'orbs' ? 'obsidianOrb' : 'obsidianPill';
+
+        // Don't produce new object if nothing changed
+        if (
+          n.type === targetType &&
+          n.data.isSelected === isSelected &&
+          n.data.isHighlighted === isHighlighted &&
+          n.data.isNeighbor === isNeighbor &&
+          n.data.isDimmed === isDimmed &&
+          n.data.nodeStyle === nodeDisplay
+        ) {
+          return n;
+        }
+
+        return {
+          ...n,
+          type: targetType,
+          data: {
+            ...n.data,
+            isSelected,
+            isHighlighted,
+            isNeighbor,
+            isDimmed,
+            nodeStyle: nodeDisplay,
+          },
+        };
+      })
+    );
+  }, [selectedNodeId, activeNodeId, highlightedNodes, connectedNeighbors, nodeDisplay, setNodes]);
+
+  // 3. Edges Sync
+  useEffect(() => {
     const validNodeIds = new Set(filteredGraphNodes.map((n) => n.id));
 
-    return index.edges
+    const newEdges: Edge[] = index.edges
       .filter((e) => validNodeIds.has(e.source) && validNodeIds.has(e.target))
       .map((e) => {
         const isBlastRadiusHighlighted =
@@ -518,15 +551,9 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
           },
         };
       });
-  }, [index.edges, filteredGraphNodes, highlightedNodes, activeNodeId, edgeStyle]);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-
-  useEffect(() => {
-    setNodes(initialNodes);
-    setEdges(initialEdges);
-  }, [initialNodes, initialEdges, setNodes, setEdges]);
+    setEdges(newEdges);
+  }, [index.edges, filteredGraphNodes, highlightedNodes, activeNodeId, edgeStyle, setEdges]);
 
   const selectedNode = index.nodes.find((n) => n.id === selectedNodeId);
   const selectedNodeFile = selectedNodeId ? index.files[selectedNodeId] : null;
@@ -568,6 +595,16 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
               <span>Constellation</span>
             </button>
           </div>
+
+          {/* Reset Physics / Reseed */}
+          <button
+            onClick={() => setReseedTrigger((prev) => prev + 1)}
+            title="Re-balance physics and reset node positions"
+            className="px-2 py-1 rounded-lg border border-outline-variant bg-surface-container hover:bg-surface-container-high text-outline hover:text-on-surface text-[11px] font-mono flex items-center gap-1 transition-colors"
+          >
+            <span className="material-symbols-outlined text-[13px]">restart_alt</span>
+            <span>Reset Physics</span>
+          </button>
 
           {/* Node Appearance Switcher (Orbs vs Pills) */}
           <div className="flex items-center gap-1 bg-surface-container p-0.5 rounded-lg border border-outline-variant text-[11px] font-mono">
@@ -661,6 +698,9 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
           edges={edges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
+          nodesDraggable={true}
+          nodesConnectable={false}
+          elementsSelectable={true}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeClick={(_e, node) => setSelectedNodeId(node.id)}
