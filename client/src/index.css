@@ -57,3 +57,37 @@
 .react-flow__attribution {
   display: none !important;
 }
+
+/* Remove React Flow default white node container and padding */
+.react-flow__node {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: inherit !important;
+}
+
+.react-flow__node-default,
+.react-flow__node-input,
+.react-flow__node-output {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.react-flow__handle {
+  width: 8px !important;
+  height: 8px !important;
+  background: #7895b2 !important;
+  border: 1.5px solid #111417 !important;
+  border-radius: 50% !important;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.react-flow__handle:hover {
+  background: #79daa6 !important;
+  transform: scale(1.3);
+}

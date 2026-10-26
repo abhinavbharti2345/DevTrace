@@ -2,15 +2,94 @@ import {
   Background,
   Controls,
   Edge,
+  Handle,
   MarkerType,
   Node,
+  NodeProps,
+  Position,
   ReactFlow,
   useEdgesState,
   useNodesState,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import { CodebaseIndex, FileRole, GraphNode } from '../types/index.js';
+
+// Custom React Flow Node Component
+interface CodeModuleNodeData extends Record<string, unknown> {
+  node: GraphNode;
+  isHighlighted: boolean;
+  isSelected: boolean;
+}
+
+const roleColors: Record<FileRole, string> = {
+  route: 'text-primary bg-primary/10 border-primary/30',
+  service: 'text-tertiary bg-tertiary/10 border-tertiary/30',
+  util: 'text-on-surface-variant bg-surface-variant border-outline-variant',
+  model: 'text-secondary bg-secondary/10 border-secondary/30',
+  test: 'text-secondary bg-secondary-container/20 border-secondary/40',
+  component: 'text-primary bg-primary-container/20 border-primary/30',
+  config: 'text-outline bg-surface-container-highest border-outline-variant',
+};
+
+const CodeModuleNode = memo(({ data }: NodeProps<Node<CodeModuleNodeData>>) => {
+  const { node, isHighlighted, isSelected } = data;
+
+  let borderStyle = 'border-outline-variant';
+  let bgStyle = 'bg-surface-container';
+
+  if (isSelected) {
+    borderStyle = 'border-primary ring-2 ring-primary/40 shadow-lg shadow-primary/10';
+    bgStyle = 'bg-surface-container-high';
+  } else if (isHighlighted) {
+    borderStyle = 'border-secondary ring-2 ring-secondary/40 shadow-lg shadow-secondary/10';
+    bgStyle = 'bg-surface-container-high';
+  }
+
+  return (
+    <div
+      className={`p-3 rounded-lg border ${borderStyle} ${bgStyle} hover:border-primary/50 text-left font-sans select-none shadow-md cursor-pointer transition-all w-[260px] relative`}
+    >
+      <Handle
+        type="target"
+        position={Position.Top}
+        className="!bg-primary !w-2.5 !h-2.5 !border-2 !border-surface -top-1.5"
+      />
+
+      <div className="flex items-center justify-between gap-1 mb-1.5">
+        <span
+          className={`font-mono text-[9px] uppercase px-1.5 py-0.5 rounded border font-semibold ${
+            roleColors[node.role] || roleColors.service
+          }`}
+        >
+          {node.role}
+        </span>
+        <span className="font-mono text-[10px] text-outline">
+          {node.importersCount} in / {node.importsCount} out
+        </span>
+      </div>
+
+      <div className="font-mono text-xs text-on-surface font-semibold truncate" title={node.label}>
+        {node.label}
+      </div>
+      <div className="text-[10px] text-outline font-mono truncate mt-0.5" title={node.path}>
+        {node.path}
+      </div>
+
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        className="!bg-secondary !w-2.5 !h-2.5 !border-2 !border-surface -bottom-1.5"
+      />
+    </div>
+  );
+});
+
+CodeModuleNode.displayName = 'CodeModuleNode';
+
+const nodeTypes = {
+  codeModule: CodeModuleNode,
+};
 
 interface DependencyGraphViewProps {
   index: CodebaseIndex;
@@ -40,73 +119,67 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
     });
   }, [index.nodes, roleFilter, searchFilter]);
 
-  // 2. Generate layout grid for React Flow nodes
-  const initialNodes: Node[] = useMemo(() => {
-    const cols = 4;
-    const colWidth = 280;
-    const rowHeight = 120;
+  // 2. Intelligent Tiered Architectural Layering Layout
+  const initialNodes: Node<CodeModuleNodeData>[] = useMemo(() => {
+    // Categorize nodes into architectural layers
+    const tiers: Record<number, GraphNode[]> = {
+      0: [], // Routes / Entrypoints
+      1: [], // Services / Controllers
+      2: [], // Models / Schemas
+      3: [], // Shared Utilities
+      4: [], // Tests
+    };
 
-    return filteredGraphNodes.map((n, idx) => {
-      const col = idx % cols;
-      const row = Math.floor(idx / cols);
-      const isHighlighted = highlightedNodes.includes(n.id);
-      const isSelected = selectedNodeId === n.id;
-
-      let borderClass = 'border-outline-variant';
-      let bgClass = 'bg-surface-container';
-
-      if (isSelected) {
-        borderClass = 'border-primary ring-2 ring-primary/40';
-        bgClass = 'bg-surface-container-high';
-      } else if (isHighlighted) {
-        borderClass = 'border-secondary ring-2 ring-secondary/40';
-        bgClass = 'bg-surface-container-high';
+    for (const node of filteredGraphNodes) {
+      if (node.isTest) {
+        tiers[4].push(node);
+      } else if (node.role === 'route' || node.label.includes('index.') || node.role === 'component') {
+        tiers[0].push(node);
+      } else if (node.role === 'service') {
+        tiers[1].push(node);
+      } else if (node.role === 'model') {
+        tiers[2].push(node);
+      } else {
+        tiers[3].push(node);
       }
+    }
 
-      const roleColors: Record<FileRole, string> = {
-        route: 'text-primary bg-primary/10 border-primary/30',
-        service: 'text-tertiary bg-tertiary/10 border-tertiary/30',
-        util: 'text-on-surface-variant bg-surface-variant border-outline-variant',
-        model: 'text-secondary bg-secondary/10 border-secondary/30',
-        test: 'text-secondary bg-secondary-container/20 border-secondary/40',
-        component: 'text-primary bg-primary-container/20 border-primary/30',
-        config: 'text-outline bg-surface-container-highest border-outline-variant',
-      };
+    const colWidth = 320;
+    const rowHeight = 160;
+    const layoutNodes: Node<CodeModuleNodeData>[] = [];
 
-      return {
-        id: n.id,
-        position: { x: col * colWidth + 50, y: row * rowHeight + 50 },
-        data: {
-          label: (
-            <div
-              className={`p-3 rounded-lg border ${borderClass} ${bgClass} text-left font-sans select-none shadow-md cursor-pointer transition-all w-[240px]`}
-            >
-              <div className="flex items-center justify-between gap-1 mb-1.5">
-                <span
-                  className={`font-mono text-[9px] uppercase px-1.5 py-0.5 rounded border ${
-                    roleColors[n.role] || roleColors.service
-                  }`}
-                >
-                  {n.role}
-                </span>
-                <span className="font-mono text-[10px] text-outline">
-                  {n.importersCount} in / {n.importsCount} out
-                </span>
-              </div>
-              <div className="font-mono text-xs text-on-surface font-semibold truncate" title={n.label}>
-                {n.label}
-              </div>
-              <div className="text-[10px] text-outline font-mono truncate" title={n.path}>
-                {n.path}
-              </div>
-            </div>
-          ),
-        },
-      };
+    // Find maximum tier count for centering
+    const maxNodesInTier = Math.max(
+      ...Object.values(tiers).map((t) => t.length),
+      1
+    );
+
+    Object.entries(tiers).forEach(([tierStr, tierNodes]) => {
+      const tierIndex = parseInt(tierStr, 10);
+      const tierCount = tierNodes.length;
+      const offsetX = ((maxNodesInTier - tierCount) * colWidth) / 2 + 60;
+
+      tierNodes.forEach((node, colIndex) => {
+        const x = offsetX + colIndex * colWidth;
+        const y = tierIndex * rowHeight + 40;
+
+        layoutNodes.push({
+          id: node.id,
+          type: 'codeModule',
+          position: { x, y },
+          data: {
+            node,
+            isHighlighted: highlightedNodes.includes(node.id),
+            isSelected: selectedNodeId === node.id,
+          },
+        });
+      });
     });
+
+    return layoutNodes;
   }, [filteredGraphNodes, highlightedNodes, selectedNodeId]);
 
-  // 3. Generate Edges for filtered nodes
+  // 3. Generate smooth curved edges with styled arrows
   const initialEdges: Edge[] = useMemo(() => {
     const validNodeIds = new Set(filteredGraphNodes.map((n) => n.id));
 
@@ -120,16 +193,17 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
           id: e.id,
           source: e.source,
           target: e.target,
+          type: 'smoothstep',
           animated: isHighlighted,
           style: {
-            stroke: isHighlighted ? '#79daa6' : '#43474d',
-            strokeWidth: isHighlighted ? 2 : 1,
+            stroke: isHighlighted ? '#79daa6' : '#353a40',
+            strokeWidth: isHighlighted ? 2.5 : 1.2,
           },
           markerEnd: {
             type: MarkerType.ArrowClosed,
-            color: isHighlighted ? '#79daa6' : '#43474d',
-            width: 12,
-            height: 12,
+            color: isHighlighted ? '#79daa6' : '#7895b2',
+            width: 10,
+            height: 10,
           },
         };
       });
@@ -153,9 +227,9 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
       <div className="h-12 bg-surface-container-low border-b border-outline-variant px-4 flex items-center justify-between gap-3 z-10 shrink-0">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-[18px] text-primary">hub</span>
-          <span className="text-xs font-semibold text-on-surface">Interactive Graph</span>
+          <span className="text-xs font-semibold text-on-surface">Tiered Architectural DAG</span>
           <span className="font-mono text-[11px] text-outline">
-            ({filteredGraphNodes.length} nodes, {initialEdges.length} edges)
+            ({filteredGraphNodes.length} modules, {initialEdges.length} connections)
           </span>
         </div>
 
@@ -166,11 +240,11 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
             value={searchFilter}
             onChange={(e) => setSearchFilter(e.target.value)}
             placeholder="Filter files..."
-            className="bg-surface-container-high border border-outline-variant rounded px-2.5 py-1 text-xs text-on-surface placeholder:text-outline focus:outline-none focus:border-primary w-40"
+            className="bg-surface-container-high border border-outline-variant rounded px-2.5 py-1 text-xs text-on-surface placeholder:text-outline focus:outline-none focus:border-primary w-40 font-mono"
           />
 
           <div className="flex items-center gap-1 bg-surface-container p-0.5 rounded border border-outline-variant text-[11px] font-mono">
-            {['all', 'route', 'service', 'util', 'test'].map((role) => (
+            {['all', 'route', 'service', 'model', 'util', 'test'].map((role) => (
               <button
                 key={role}
                 onClick={() => setRoleFilter(role)}
@@ -192,12 +266,14 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
         <ReactFlow
           nodes={nodes}
           edges={edges}
+          nodeTypes={nodeTypes}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeClick={(_e, node) => setSelectedNodeId(node.id)}
           fitView
+          fitViewOptions={{ padding: 0.2 }}
         >
-          <Background color="#272a2e" gap={20} size={1} />
+          <Background color="#272a2e" gap={24} size={1} />
           <Controls />
         </ReactFlow>
 
