@@ -1,10 +1,14 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import dotenv from 'dotenv';
 import { CandidateMatch, CodebaseIndex, FeatureExplorerResult } from '../types/index.js';
 
 export async function exploreFeatureWithAI(
   index: CodebaseIndex,
   query: string
 ): Promise<FeatureExplorerResult> {
+  // Ensure latest .env values are picked up
+  dotenv.config();
+
   // Stage 1: Deterministic AST & Graph Candidate Ranking
   const candidates = rankCandidatesForQuery(index, query);
   const topCandidates = candidates.slice(0, 5);
@@ -27,21 +31,28 @@ export async function exploreFeatureWithAI(
   // Stage 2: Grounded LLM Enrichment
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    let aiExplanation = '';
+
+    const candidateModels = [
+      'gemini-3.5-flash',
+      'gemini-3.8-flash',
+      'gemini-flash-latest',
+      'gemini-2.5-flash',
+    ];
 
     const contextPayload = topCandidates.map((c) => {
       const file = index.files[c.file];
       return {
         path: c.file,
         matchedSymbols: c.matchedSymbols,
-        exportedSymbols: file.symbols.filter((s) => s.isExported).map((s) => `${s.kind} ${s.name}`),
-        directImports: file.imports.map((i) => i.source),
+        exportedSymbols: file ? file.symbols.filter((s) => s.isExported).map((s) => `${s.kind} ${s.name}`) : [],
+        directImports: file ? file.imports.map((i) => i.source) : [],
         directImporters: index.reverseAdjacency[c.file] || [],
         snippetSample: c.snippet,
       };
     });
 
-    const prompt = `You are DevTrace Codebase Intelligence, an expert developer assistant.
+    const prompt = `You are DevTrace Codebase Intelligence, an expert developer assistant analyzing repository "${index.repoName}".
 Analyze the following user query about the indexed repository:
 Query: "${query}"
 
@@ -49,13 +60,25 @@ Here are the top ranked files discovered deterministically from the codebase AST
 ${JSON.stringify(contextPayload, null, 2)}
 
 Provide an authoritative, grounded architectural explanation:
-1. Explain how these files work together to fulfill or relate to the feature.
+1. Explain how these files work together to fulfill or relate to the feature in "${index.repoName}".
 2. Specifically cite file paths and functions/classes discovered in the evidence.
 3. Do NOT invent any files or functions not present in the evidence.
 4. Keep the explanation concise (2 to 3 paragraphs max) in crisp markdown.`;
 
-    const result = await model.generateContent(prompt);
-    const aiExplanation = result.response.text();
+    for (const modelName of candidateModels) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent(prompt);
+        aiExplanation = result.response.text();
+        if (aiExplanation) break;
+      } catch (err) {
+        console.warn(`Model ${modelName} failed, trying next:`, (err as Error).message);
+      }
+    }
+
+    if (!aiExplanation) {
+      throw new Error('All candidate Gemini models failed to generate content');
+    }
 
     return {
       query,
@@ -191,14 +214,26 @@ function buildDeterministicExplanation(
   index: CodebaseIndex
 ): string {
   if (topCandidates.length === 0) {
-    return `No direct AST or symbol matches found for query **"${query}"**. Try searching for common architectural keywords like *auth*, *cart*, *service*, *router*, or *db*.`;
+    const sampleKeywords = Array.from(
+      new Set(
+        index.nodes
+          .map((n) => n.label.replace(/\.[^/.]+$/, '').toLowerCase())
+          .filter((k) => k.length > 2)
+      )
+    ).slice(0, 5);
+
+    const hint =
+      sampleKeywords.length > 0
+        ? `Try searching for keywords in this codebase like: *${sampleKeywords.join('*, *')}*.`
+        : 'Try searching for component, service, route, or function names.';
+
+    return `No direct AST or symbol matches found in **${index.repoName}** for query **"${query}"**.\n\n${hint}`;
   }
 
-  let text = `### AST & Graph Analysis for "${query}"\n\n`;
+  let text = `### AST & Graph Analysis for "${query}" in ${index.repoName}\n\n`;
   text += `Based on syntactic AST parsing and static dependency traversal, **${topCandidates.length} candidate modules** implement or connect directly to this feature:\n\n`;
 
   for (const c of topCandidates) {
-    const file = index.files[c.file];
     const importers = index.reverseAdjacency[c.file] || [];
     text += `- **\`${c.file}\`**: ${c.relevanceReason}. `;
     if (importers.length > 0) {

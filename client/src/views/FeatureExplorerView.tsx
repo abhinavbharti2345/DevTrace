@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FeatureExplorerResult } from '../types/index.js';
+import React, { useMemo, useState } from 'react';
+import { CodebaseIndex, FeatureExplorerResult } from '../types/index.js';
 
 interface FeatureExplorerViewProps {
   onSearch: (query: string) => Promise<void>;
@@ -8,6 +8,7 @@ interface FeatureExplorerViewProps {
   onInspectInGraph: (filePath: string) => void;
   onViewFile: (filePath: string) => void;
   initialQuery?: string;
+  index?: CodebaseIndex | null;
 }
 
 export const FeatureExplorerView: React.FC<FeatureExplorerViewProps> = ({
@@ -17,6 +18,7 @@ export const FeatureExplorerView: React.FC<FeatureExplorerViewProps> = ({
   onInspectInGraph,
   onViewFile,
   initialQuery = '',
+  index,
 }) => {
   const [query, setQuery] = useState(initialQuery);
 
@@ -27,11 +29,45 @@ export const FeatureExplorerView: React.FC<FeatureExplorerViewProps> = ({
     }
   };
 
-  const sampleQueries = [
-    'Where is user authentication and session validation handled?',
-    'Show all files involved in cart checkout and payments',
-    'Which modules handle password hashing and JWT token signing?',
-  ];
+  const sampleQueries = useMemo(() => {
+    if (!index || !index.nodes || index.nodes.length === 0) {
+      return [
+        'Where is user authentication and session validation handled?',
+        'Show all files involved in cart checkout and payments',
+        'Which modules handle password hashing and JWT token signing?',
+      ];
+    }
+
+    const queries: string[] = [];
+    const roles = new Set(index.nodes.map((n) => n.role));
+
+    if (roles.has('component')) {
+      const components = index.nodes.filter((n) => n.role === 'component');
+      const topComp = components.slice(0, 2).map((c) => c.label.replace(/\.[^/.]+$/, ''));
+      queries.push(`Show UI components handling ${topComp.join(' and ')}`);
+      queries.push('Where is client-side state and navigation handled?');
+    }
+
+    if (roles.has('route') || roles.has('service')) {
+      const routesOrServices = index.nodes.filter((n) => n.role === 'route' || n.role === 'service');
+      const topItems = routesOrServices.slice(0, 2).map((r) => r.label.replace(/\.[^/.]+$/, ''));
+      queries.push(`How are ${topItems.join(' and ')} logic and endpoints structured?`);
+    }
+
+    const topConnected = [...index.nodes]
+      .sort((a, b) => b.importersCount + b.importsCount - (a.importersCount + a.importsCount))
+      .slice(0, 2);
+
+    if (topConnected.length > 0 && queries.length < 3) {
+      queries.push(`Trace the dependency flow through ${topConnected[0].label}`);
+    }
+
+    if (queries.length < 3) {
+      queries.push(`Where are the primary entrypoints and exports in ${index.repoName}?`);
+    }
+
+    return queries.slice(0, 3);
+  }, [index]);
 
   return (
     <div className="p-6 space-y-6 max-w-[1400px] mx-auto w-full font-sans">

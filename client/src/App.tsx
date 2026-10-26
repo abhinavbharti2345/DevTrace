@@ -236,6 +236,7 @@ export const App: React.FC = () => {
               onInspectInGraph={handleInspectInGraph}
               onViewFile={(f) => setViewingFilePath(f)}
               initialQuery={featureQuery}
+              index={index}
             />
           )}
 
