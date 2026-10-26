@@ -711,35 +711,35 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
       {/* Top Controls Bar */}
       <div className="h-12 bg-surface-container-low border-b border-outline-variant px-4 flex items-center justify-between gap-3 z-10 shrink-0">
         {/* Left Side: Title, Search & Role Filters */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 mr-1">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             <span className="material-symbols-outlined text-[18px] text-primary">hub</span>
-            <span className="text-xs font-semibold text-on-surface whitespace-nowrap">
-              Obsidian Knowledge Graph
+            <span className="text-xs font-semibold text-on-surface whitespace-nowrap hidden lg:inline">
+              Obsidian Graph
             </span>
-            <span className="text-[10px] font-mono text-outline bg-surface-container px-2 py-0.5 rounded-full border border-outline-variant">
+            <span className="text-[10px] font-mono text-outline bg-surface-container px-2 py-0.5 rounded-full border border-outline-variant whitespace-nowrap">
               {isFilterActive
-                ? `${matchingNodesCount} / ${index.nodes.length} nodes`
+                ? `${matchingNodesCount} / ${index.nodes.length}`
                 : `${index.nodes.length} nodes`}
             </span>
           </div>
 
           {/* Search Box */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <input
               type="text"
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
-              placeholder="Search notes..."
-              className="bg-surface-container-high border border-outline-variant rounded-full pl-7 pr-3 py-1 text-xs text-on-surface placeholder:text-outline focus:outline-none focus:border-primary w-36 font-mono"
+              placeholder="Search..."
+              className="bg-surface-container-high border border-outline-variant rounded-full pl-7 pr-3 py-1 text-xs text-on-surface placeholder:text-outline focus:outline-none focus:border-primary w-28 lg:w-32 font-mono"
             />
-            <span className="material-symbols-outlined text-[14px] text-outline absolute left-2 top-1.5 pointer-events-none">
+            <span className="material-symbols-outlined text-[13px] text-outline absolute left-2 top-1.5 pointer-events-none">
               search
             </span>
           </div>
 
           {/* Dynamic Role Filter Chips according to current project */}
-          <div className="flex items-center gap-1 bg-surface-container p-0.5 rounded-full border border-outline-variant text-[10px] font-mono overflow-x-auto max-w-xl">
+          <div className="flex items-center gap-1 bg-surface-container p-0.5 rounded-full border border-outline-variant text-[10px] font-mono overflow-x-auto no-scrollbar scroll-smooth flex-nowrap shrink">
             {availableRoles.map((role) => {
               const count = roleCounts[role] || 0;
               const isSelected = roleFilter === role;
@@ -749,7 +749,7 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
                 <button
                   key={role}
                   onClick={() => setRoleFilter(roleFilter === role ? 'all' : role)}
-                  className={`px-2.5 py-0.5 rounded-full uppercase transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  className={`px-2 py-0.5 rounded-full uppercase transition-all flex items-center gap-1 whitespace-nowrap shrink-0 ${
                     isSelected
                       ? 'bg-surface-container-highest text-primary font-semibold border border-primary/40 shadow-sm'
                       : 'text-outline hover:text-on-surface hover:bg-surface-container-high border border-transparent'
@@ -775,7 +775,7 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
         </div>
 
         {/* Right Side: Graph Customize Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <span className="text-[10px] uppercase font-mono text-outline tracking-wider hidden xl:inline-block mr-1">
             Customize Graph:
           </span>

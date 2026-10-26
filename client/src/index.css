@@ -29,6 +29,15 @@
   background: #36393e;
 }
 
+/* Hide scrollbar for clean horizontal pill bars */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* React Flow custom dark theme overrides */
 .react-flow__background {
   background-color: #111417 !important;
