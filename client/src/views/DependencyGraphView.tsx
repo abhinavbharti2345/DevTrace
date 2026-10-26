@@ -31,11 +31,12 @@ interface CodeModuleNodeData extends Record<string, unknown> {
   isSelected: boolean;
   isDimmed: boolean;
   isNeighbor: boolean;
+  isFilterMatch?: boolean;
   nodeStyle: 'orbs' | 'pills';
 }
 
 const roleGlowColors: Record<
-  FileRole,
+  string,
   { dot: string; glow: string; badge: string; text: string; hex: string }
 > = {
   route: {
@@ -87,23 +88,34 @@ const roleGlowColors: Record<
     text: 'text-slate-300',
     hex: '#94a3b8',
   },
+  other: {
+    dot: 'bg-purple-400',
+    glow: 'shadow-[0_0_10px_rgba(192,132,252,0.5)]',
+    badge: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+    text: 'text-purple-300',
+    hex: '#c084fc',
+  },
+};
+
+const getRoleTheme = (role: string) => {
+  return roleGlowColors[role] || roleGlowColors.other || roleGlowColors.service;
 };
 
 // 1. True Obsidian Starfield Orb Node (Fully draggable with grab cursors)
 const ObsidianOrbNode = memo(({ data }: NodeProps<Node<CodeModuleNodeData>>) => {
-  const { node, isHighlighted, isSelected, isDimmed, isNeighbor } = data;
-  const theme = roleGlowColors[node.role] || roleGlowColors.service;
+  const { node, isHighlighted, isSelected, isDimmed, isNeighbor, isFilterMatch } = data;
+  const theme = getRoleTheme(node.role);
 
   // Connection degree determines node mass/radius
   const degree = node.importersCount + node.importsCount;
   const orbDiameter = Math.max(20, Math.min(38, 20 + degree * 2));
 
   let containerClasses =
-    'relative flex flex-col items-center justify-center select-none cursor-grab active:cursor-grabbing group p-2';
+    'relative flex flex-col items-center justify-center select-none cursor-grab active:cursor-grabbing group p-2 transition-all duration-300';
   if (isDimmed) {
-    containerClasses += ' opacity-25 blur-[0.3px] hover:opacity-100 hover:blur-0 transition-all';
+    containerClasses += ' opacity-15 blur-[0.4px] hover:opacity-100 hover:blur-0';
   } else {
-    containerClasses += ' opacity-100 transition-all';
+    containerClasses += ' opacity-100';
   }
 
   return (
@@ -128,13 +140,15 @@ const ObsidianOrbNode = memo(({ data }: NodeProps<Node<CodeModuleNodeData>>) => 
           width: `${orbDiameter}px`,
           height: `${orbDiameter}px`,
         }}
-        className={`rounded-full ${theme.dot} transition-all duration-200 relative flex items-center justify-center pointer-events-none ${
+        className={`rounded-full ${theme.dot} transition-all duration-300 relative flex items-center justify-center pointer-events-none ${
           isSelected
             ? 'ring-4 ring-primary shadow-[0_0_24px_rgba(172,202,233,0.95)] scale-125 z-30'
             : isHighlighted
             ? 'ring-4 ring-secondary shadow-[0_0_24px_rgba(121,218,166,0.95)] scale-125 z-20'
             : isNeighbor
             ? 'ring-2 ring-primary/80 shadow-[0_0_18px_rgba(172,202,233,0.7)] scale-110 z-10'
+            : isFilterMatch && !isDimmed
+            ? `${theme.glow} ring-2 ring-white/60 shadow-[0_0_20px_rgba(255,255,255,0.4)] scale-110 z-10`
             : `${theme.glow} group-hover:scale-125 group-hover:ring-2 group-hover:ring-white/80`
         }`}
       >
@@ -151,6 +165,8 @@ const ObsidianOrbNode = memo(({ data }: NodeProps<Node<CodeModuleNodeData>>) => 
               ? 'text-secondary bg-surface-container-high/95 border border-secondary/60 scale-105'
               : isNeighbor
               ? 'text-primary-container bg-surface-container/95 border border-outline-variant/70'
+              : isFilterMatch && !isDimmed
+              ? 'text-primary bg-surface-container-high/95 border border-primary/50 shadow-sm scale-105'
               : 'text-on-surface/90 bg-surface/80 border border-outline-variant/30 group-hover:text-primary group-hover:border-primary/50'
           }`}
         >
@@ -167,11 +183,11 @@ ObsidianOrbNode.displayName = 'ObsidianOrbNode';
 
 // 2. Obsidian Pill Node (Optional Expanded Mode, fully draggable)
 const ObsidianPillNode = memo(({ data }: NodeProps<Node<CodeModuleNodeData>>) => {
-  const { node, isHighlighted, isSelected, isDimmed, isNeighbor } = data;
-  const theme = roleGlowColors[node.role] || roleGlowColors.service;
+  const { node, isHighlighted, isSelected, isDimmed, isNeighbor, isFilterMatch } = data;
+  const theme = getRoleTheme(node.role);
 
   let containerClasses =
-    'px-3.5 py-2 rounded-full backdrop-blur-md border border-outline-variant/70 hover:border-primary/80 select-none cursor-grab active:cursor-grabbing transition-all duration-200 flex items-center gap-2 shadow-lg group relative min-w-[170px] max-w-[240px]';
+    'px-3.5 py-2 rounded-full backdrop-blur-md border select-none cursor-grab active:cursor-grabbing transition-all duration-300 flex items-center gap-2 shadow-lg group relative min-w-[170px] max-w-[240px]';
 
   if (isSelected) {
     containerClasses +=
@@ -184,9 +200,12 @@ const ObsidianPillNode = memo(({ data }: NodeProps<Node<CodeModuleNodeData>>) =>
       ' bg-surface-container-high border-primary/80 ring-1 ring-primary/40 shadow-[0_0_15px_rgba(172,202,233,0.3)] z-10 opacity-100';
   } else if (isDimmed) {
     containerClasses +=
-      ' bg-surface-container/40 border-outline-variant/30 opacity-25 blur-[0.2px] hover:opacity-100 hover:blur-0';
+      ' bg-surface-container/20 border-outline-variant/20 opacity-15 hover:opacity-90 hover:bg-surface-container/70 hover:border-outline-variant/60';
+  } else if (isFilterMatch) {
+    containerClasses +=
+      ' bg-surface-container-high border-primary/60 ring-1 ring-primary/40 shadow-[0_0_16px_rgba(172,202,233,0.35)] scale-[1.02] opacity-100 z-10';
   } else {
-    containerClasses += ' bg-surface-container/90 opacity-100';
+    containerClasses += ' bg-surface-container/90 border-outline-variant/70 hover:border-primary/80 opacity-100';
   }
 
   return (
@@ -333,15 +352,52 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
 
   const activeNodeId = hoveredNodeId || selectedNodeId;
 
-  // Filter nodes
-  const filteredGraphNodes = useMemo(() => {
-    return index.nodes.filter((node) => {
-      if (roleFilter !== 'all' && node.role !== roleFilter) return false;
-      if (searchFilter && !node.path.toLowerCase().includes(searchFilter.toLowerCase())) {
-        return false;
-      }
-      return true;
+  // Dynamically extract available roles & their counts from this specific project
+  const roleCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: index.nodes.length };
+    index.nodes.forEach((n) => {
+      const roleKey = n.role || 'other';
+      counts[roleKey] = (counts[roleKey] || 0) + 1;
     });
+    return counts;
+  }, [index.nodes]);
+
+  const availableRoles = useMemo(() => {
+    const distinctRoles = Array.from(new Set(index.nodes.map((n) => n.role || 'other')));
+    const priority = ['component', 'route', 'service', 'model', 'util', 'test', 'config'];
+    distinctRoles.sort((a, b) => {
+      const idxA = priority.indexOf(a);
+      const idxB = priority.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
+    return ['all', ...distinctRoles];
+  }, [index.nodes]);
+
+  // If active roleFilter no longer exists in current project, reset to 'all'
+  useEffect(() => {
+    if (roleFilter !== 'all' && !availableRoles.includes(roleFilter)) {
+      setRoleFilter('all');
+    }
+  }, [availableRoles, roleFilter]);
+
+  const nodeMap = useMemo(() => {
+    return new Map(index.nodes.map((n) => [n.id, n]));
+  }, [index.nodes]);
+
+  const isFilterActive = roleFilter !== 'all' || searchFilter.trim().length > 0;
+
+  const matchingNodesCount = useMemo(() => {
+    return index.nodes.filter((node) => {
+      const matchesRole = roleFilter === 'all' || node.role === roleFilter;
+      const matchesSearch =
+        !searchFilter.trim() ||
+        node.path.toLowerCase().includes(searchFilter.toLowerCase()) ||
+        node.label.toLowerCase().includes(searchFilter.toLowerCase());
+      return matchesRole && matchesSearch;
+    }).length;
   }, [index.nodes, roleFilter, searchFilter]);
 
   // Connected neighbors for spotlight
@@ -355,16 +411,16 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
     return neighbors;
   }, [activeNodeId, index.edges]);
 
-  // Dynamic D3 Force Simulation (Real Obsidian Physics)
+  // Dynamic D3 Force Simulation for full project architecture (Real Obsidian Physics)
   const computedPositions = useMemo(() => {
-    if (filteredGraphNodes.length === 0) return new Map<string, { x: number; y: number }>();
+    if (index.nodes.length === 0) return new Map<string, { x: number; y: number }>();
 
     const positions = new Map<string, { x: number; y: number }>();
 
     if (layoutMode === 'force') {
-      const validNodeIds = new Set(filteredGraphNodes.map((n) => n.id));
-      const simNodes: D3SimNode[] = filteredGraphNodes.map((n, i) => {
-        const angle = (i / filteredGraphNodes.length) * 2 * Math.PI;
+      const validNodeIds = new Set(index.nodes.map((n) => n.id));
+      const simNodes: D3SimNode[] = index.nodes.map((n, i) => {
+        const angle = (i / Math.max(index.nodes.length, 1)) * 2 * Math.PI;
         return {
           id: n.id,
           graphNode: n,
@@ -408,8 +464,8 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
       const midOrbit: GraphNode[] = [];
       const outerOrbit: GraphNode[] = [];
 
-      filteredGraphNodes.forEach((node) => {
-        if (node.role === 'service' || node.role === 'model') {
+      index.nodes.forEach((node) => {
+        if (node.role === 'service' || node.role === 'model' || node.role === 'config') {
           innerOrbit.push(node);
         } else if (node.role === 'route' || node.role === 'util') {
           midOrbit.push(node);
@@ -418,9 +474,9 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
         }
       });
 
-      const placeInCircle = (nodes: GraphNode[], radius: number, angleOffset = 0) => {
-        nodes.forEach((n, i) => {
-          const angle = angleOffset + (i / Math.max(nodes.length, 1)) * 2 * Math.PI;
+      const placeInCircle = (nodesList: GraphNode[], radius: number, angleOffset = 0) => {
+        nodesList.forEach((n, i) => {
+          const angle = angleOffset + (i / Math.max(nodesList.length, 1)) * 2 * Math.PI;
           positions.set(n.id, {
             x: centerX + Math.cos(angle) * radius,
             y: centerY + Math.sin(angle) * (radius * 0.8),
@@ -434,19 +490,34 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
     }
 
     return positions;
-  }, [filteredGraphNodes, index.edges, layoutMode, reseedTrigger]);
+  }, [index.nodes, index.edges, layoutMode, reseedTrigger]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<CodeModuleNodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
-  // 1. Initial Position Assignment (Only runs on layoutMode change, filter change, or reseed)
+  // 1. Initial Position Assignment (Only runs on layoutMode change, reseed, or index change)
   useEffect(() => {
-    const initialNodesList: Node<CodeModuleNodeData>[] = filteredGraphNodes.map((node) => {
+    const isFilterOn = roleFilter !== 'all' || searchFilter.trim().length > 0;
+
+    const initialNodesList: Node<CodeModuleNodeData>[] = index.nodes.map((node) => {
       const pos = computedPositions.get(node.id) || { x: 520, y: 360 };
       const isSelected = selectedNodeId === node.id;
       const isHighlighted = highlightedNodes.includes(node.id);
       const isNeighbor = activeNodeId !== null && connectedNeighbors.has(node.id);
-      const isDimmed = activeNodeId !== null && !connectedNeighbors.has(node.id);
+
+      const matchesRole = roleFilter === 'all' || node.role === roleFilter;
+      const matchesSearch =
+        !searchFilter.trim() ||
+        node.path.toLowerCase().includes(searchFilter.toLowerCase()) ||
+        node.label.toLowerCase().includes(searchFilter.toLowerCase());
+      const isFilterMatch = matchesRole && matchesSearch;
+
+      const isDimmed =
+        activeNodeId !== null
+          ? !connectedNeighbors.has(node.id)
+          : isFilterOn
+          ? !isFilterMatch
+          : false;
 
       return {
         id: node.id,
@@ -458,6 +529,7 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
           isSelected,
           isDimmed,
           isNeighbor,
+          isFilterMatch,
           nodeStyle: nodeDisplay,
         },
       };
@@ -466,14 +538,31 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
     setNodes(initialNodesList);
   }, [computedPositions, layoutMode, setNodes]);
 
-  // 2. State/Hover/Display Sync: Preserves current user-dragged node.position!
+  // 2. State/Hover/Display/Filter Sync: Preserves current user-dragged node.position!
   useEffect(() => {
+    const isFilterOn = roleFilter !== 'all' || searchFilter.trim().length > 0;
+
     setNodes((currentNodes) =>
       currentNodes.map((n) => {
         const isSelected = selectedNodeId === n.id;
         const isHighlighted = highlightedNodes.includes(n.id);
         const isNeighbor = activeNodeId !== null && connectedNeighbors.has(n.id);
-        const isDimmed = activeNodeId !== null && !connectedNeighbors.has(n.id);
+
+        const nodeObj = n.data.node;
+        const matchesRole = roleFilter === 'all' || nodeObj.role === roleFilter;
+        const matchesSearch =
+          !searchFilter.trim() ||
+          nodeObj.path.toLowerCase().includes(searchFilter.toLowerCase()) ||
+          nodeObj.label.toLowerCase().includes(searchFilter.toLowerCase());
+        const isFilterMatch = matchesRole && matchesSearch;
+
+        const isDimmed =
+          activeNodeId !== null
+            ? !connectedNeighbors.has(n.id)
+            : isFilterOn
+            ? !isFilterMatch
+            : false;
+
         const targetType = nodeDisplay === 'orbs' ? 'obsidianOrb' : 'obsidianPill';
 
         // Don't produce new object if nothing changed
@@ -483,6 +572,7 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
           n.data.isHighlighted === isHighlighted &&
           n.data.isNeighbor === isNeighbor &&
           n.data.isDimmed === isDimmed &&
+          n.data.isFilterMatch === isFilterMatch &&
           n.data.nodeStyle === nodeDisplay
         ) {
           return n;
@@ -497,63 +587,121 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
             isHighlighted,
             isNeighbor,
             isDimmed,
+            isFilterMatch,
             nodeStyle: nodeDisplay,
           },
         };
       })
     );
-  }, [selectedNodeId, activeNodeId, highlightedNodes, connectedNeighbors, nodeDisplay, setNodes]);
+  }, [
+    selectedNodeId,
+    activeNodeId,
+    highlightedNodes,
+    connectedNeighbors,
+    roleFilter,
+    searchFilter,
+    nodeDisplay,
+    setNodes,
+  ]);
 
-  // 3. Edges Sync
+  // 3. Dynamic Edges Sync (Eliminates dangling edges completely by keeping all endpoints valid)
   useEffect(() => {
-    const validNodeIds = new Set(filteredGraphNodes.map((n) => n.id));
+    const isFilterOn = roleFilter !== 'all' || searchFilter.trim().length > 0;
 
-    const newEdges: Edge[] = index.edges
-      .filter((e) => validNodeIds.has(e.source) && validNodeIds.has(e.target))
-      .map((e) => {
-        const isBlastRadiusHighlighted =
-          highlightedNodes.includes(e.source) && highlightedNodes.includes(e.target);
-        const isConnectedToActive =
-          activeNodeId !== null && (e.source === activeNodeId || e.target === activeNodeId);
-        const isProminent = isConnectedToActive || isBlastRadiusHighlighted;
-        const isDimmed = activeNodeId !== null && !isProminent;
+    const matchesFilter = (nodeId: string) => {
+      const node = nodeMap.get(nodeId);
+      if (!node) return false;
+      const matchesRole = roleFilter === 'all' || node.role === roleFilter;
+      const matchesSearch =
+        !searchFilter.trim() ||
+        node.path.toLowerCase().includes(searchFilter.toLowerCase()) ||
+        node.label.toLowerCase().includes(searchFilter.toLowerCase());
+      return matchesRole && matchesSearch;
+    };
 
-        const edgeColor = isBlastRadiusHighlighted
+    const newEdges: Edge[] = index.edges.map((e) => {
+      const isBlastRadiusHighlighted =
+        highlightedNodes.includes(e.source) && highlightedNodes.includes(e.target);
+      const isConnectedToActive =
+        activeNodeId !== null && (e.source === activeNodeId || e.target === activeNodeId);
+
+      const sourceMatches = matchesFilter(e.source);
+      const targetMatches = matchesFilter(e.target);
+
+      let isProminent = false;
+      let isDimmed = false;
+      let edgeColor = 'rgba(120, 149, 178, 0.32)';
+
+      if (activeNodeId !== null) {
+        isProminent = isConnectedToActive || isBlastRadiusHighlighted;
+        isDimmed = !isProminent;
+        edgeColor = isBlastRadiusHighlighted
           ? '#79daa6'
           : isConnectedToActive
           ? '#accae9'
-          : isDimmed
-          ? 'rgba(120, 149, 178, 0.08)'
-          : 'rgba(120, 149, 178, 0.32)';
+          : 'rgba(120, 149, 178, 0.05)';
+      } else if (isFilterOn) {
+        if (sourceMatches && targetMatches) {
+          // Intra-category connections between matching nodes
+          isProminent = true;
+          isDimmed = false;
+          const sourceNode = nodeMap.get(e.source);
+          const theme = sourceNode ? getRoleTheme(sourceNode.role) : roleGlowColors.service;
+          edgeColor = theme.hex || '#accae9';
+        } else if (sourceMatches || targetMatches) {
+          // Boundary connection between matching node and rest of graph
+          isProminent = false;
+          isDimmed = true;
+          edgeColor = 'rgba(120, 149, 178, 0.16)';
+        } else {
+          // Unrelated edges
+          isProminent = false;
+          isDimmed = true;
+          edgeColor = 'rgba(120, 149, 178, 0.03)';
+        }
+      } else {
+        isProminent = isBlastRadiusHighlighted;
+        isDimmed = false;
+        edgeColor = isBlastRadiusHighlighted ? '#79daa6' : 'rgba(120, 149, 178, 0.32)';
+      }
 
-        return {
-          id: e.id,
-          source: e.source,
-          target: e.target,
-          type: edgeStyle === 'straight' ? 'obsidianStraight' : 'obsidianCurved',
-          animated: isProminent,
-          style: {
-            stroke: edgeColor,
-            strokeWidth: isProminent ? 2.2 : isDimmed ? 0.7 : 1.2,
-            filter: isProminent
-              ? isBlastRadiusHighlighted
-                ? 'drop-shadow(0 0 6px rgba(121, 218, 166, 0.8))'
-                : 'drop-shadow(0 0 6px rgba(172, 202, 233, 0.8))'
-              : 'none',
-            opacity: isDimmed ? 0.18 : 1,
-            transition: 'all 0.2s ease',
-          },
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: edgeColor,
-            width: 6,
-            height: 6,
-          },
-        };
-      });
+      return {
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        type: edgeStyle === 'straight' ? 'obsidianStraight' : 'obsidianCurved',
+        animated: isProminent,
+        style: {
+          stroke: edgeColor,
+          strokeWidth: isProminent ? 2.2 : isDimmed ? 0.6 : 1.2,
+          filter: isProminent
+            ? isBlastRadiusHighlighted
+              ? 'drop-shadow(0 0 6px rgba(121, 218, 166, 0.8))'
+              : `drop-shadow(0 0 6px ${edgeColor})`
+            : 'none',
+          opacity: isDimmed ? 0.2 : 1,
+          transition: 'all 0.25s ease',
+        },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: edgeColor,
+          width: isProminent ? 7 : 5,
+          height: isProminent ? 7 : 5,
+        },
+      };
+    });
 
     setEdges(newEdges);
-  }, [index.edges, filteredGraphNodes, highlightedNodes, activeNodeId, edgeStyle, setEdges]);
+  }, [
+    index.edges,
+    nodeMap,
+    roleFilter,
+    searchFilter,
+    highlightedNodes,
+    activeNodeId,
+    edgeStyle,
+    setEdges,
+  ]);
 
   const selectedNode = index.nodes.find((n) => n.id === selectedNodeId);
   const selectedNodeFile = selectedNodeId ? index.files[selectedNodeId] : null;
@@ -569,8 +717,10 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
             <span className="text-xs font-semibold text-on-surface whitespace-nowrap">
               Obsidian Knowledge Graph
             </span>
-            <span className="text-[10px] font-mono text-outline bg-surface-container px-1.5 py-0.5 rounded-full border border-outline-variant">
-              {filteredGraphNodes.length} nodes
+            <span className="text-[10px] font-mono text-outline bg-surface-container px-2 py-0.5 rounded-full border border-outline-variant">
+              {isFilterActive
+                ? `${matchingNodesCount} / ${index.nodes.length} nodes`
+                : `${index.nodes.length} nodes`}
             </span>
           </div>
 
@@ -588,21 +738,39 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
             </span>
           </div>
 
-          {/* Role Filter Chips */}
-          <div className="flex items-center gap-1 bg-surface-container p-0.5 rounded-full border border-outline-variant text-[10px] font-mono">
-            {['all', 'route', 'service', 'model', 'util', 'test'].map((role) => (
-              <button
-                key={role}
-                onClick={() => setRoleFilter(role)}
-                className={`px-2 py-0.5 rounded-full uppercase transition-colors ${
-                  roleFilter === role
-                    ? 'bg-surface-container-highest text-primary font-medium shadow-sm'
-                    : 'text-outline hover:text-on-surface'
-                }`}
-              >
-                {role}
-              </button>
-            ))}
+          {/* Dynamic Role Filter Chips according to current project */}
+          <div className="flex items-center gap-1 bg-surface-container p-0.5 rounded-full border border-outline-variant text-[10px] font-mono overflow-x-auto max-w-xl">
+            {availableRoles.map((role) => {
+              const count = roleCounts[role] || 0;
+              const isSelected = roleFilter === role;
+              const roleTheme = role !== 'all' ? getRoleTheme(role) : null;
+
+              return (
+                <button
+                  key={role}
+                  onClick={() => setRoleFilter(roleFilter === role ? 'all' : role)}
+                  className={`px-2.5 py-0.5 rounded-full uppercase transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                    isSelected
+                      ? 'bg-surface-container-highest text-primary font-semibold border border-primary/40 shadow-sm'
+                      : 'text-outline hover:text-on-surface hover:bg-surface-container-high border border-transparent'
+                  }`}
+                >
+                  {roleTheme && (
+                    <span className={`w-1.5 h-1.5 rounded-full ${roleTheme.dot} shrink-0`} />
+                  )}
+                  <span>{role}</span>
+                  <span
+                    className={`text-[9px] px-1 rounded-full ${
+                      isSelected
+                        ? 'bg-primary/20 text-primary font-bold'
+                        : 'bg-surface-container-highest/60 text-outline'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
