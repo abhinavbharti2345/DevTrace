@@ -1,0 +1,15 @@
+{
+  "name": "shopsphere-api",
+  "version": "2.4.0",
+  "description": "ShopSphere E-Commerce Backend & Checkout Engine",
+  "main": "src/index.ts",
+  "dependencies": {
+    "express": "^4.19.0",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3"
+  },
+  "devDependencies": {
+    "vitest": "^2.0.0",
+    "typescript": "^5.5.0"
+  }
+}
