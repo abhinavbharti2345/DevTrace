@@ -22,7 +22,7 @@ import {
   forceSimulation,
   SimulationNodeDatum,
 } from 'd3-force';
-import React, { memo, useEffect, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CodebaseIndex, FileRole, GraphNode } from '../types/index.js';
 
 interface CodeModuleNodeData extends Record<string, unknown> {
@@ -383,6 +383,104 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
     }
   }, [availableRoles, roleFilter]);
 
+  // Hold-and-drag mouse scroll & horizontal wheel for Role Filter Chips
+  const filterBarRef = useRef<HTMLDivElement>(null);
+  const [isFilterBarDragging, setIsFilterBarDragging] = useState(false);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const filterDragRef = useRef({
+    isDown: false,
+    startX: 0,
+    startScrollLeft: 0,
+    hasDragged: false,
+  });
+
+  const checkScrollState = useCallback(() => {
+    const el = filterBarRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    const el = filterBarRef.current;
+    if (!el) return;
+
+    checkScrollState();
+
+    const onScroll = () => checkScrollState();
+    el.addEventListener('scroll', onScroll, { passive: true });
+
+    // Handle vertical mouse wheel as horizontal scroll without moving page
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY * 0.9;
+        checkScrollState();
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+
+    window.addEventListener('resize', checkScrollState);
+
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      el.removeEventListener('wheel', onWheel);
+      window.removeEventListener('resize', checkScrollState);
+    };
+  }, [availableRoles, checkScrollState]);
+
+  const handleFilterBarMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || !filterBarRef.current) return;
+    filterDragRef.current = {
+      isDown: true,
+      startX: e.clientX,
+      startScrollLeft: filterBarRef.current.scrollLeft,
+      hasDragged: false,
+    };
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!filterDragRef.current.isDown || !filterBarRef.current) return;
+      const dx = ev.clientX - filterDragRef.current.startX;
+      if (Math.abs(dx) > 3) {
+        filterDragRef.current.hasDragged = true;
+        setIsFilterBarDragging(true);
+      }
+      filterBarRef.current.scrollLeft = filterDragRef.current.startScrollLeft - dx;
+      checkScrollState();
+    };
+
+    const onMouseUp = () => {
+      filterDragRef.current.isDown = false;
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      setTimeout(() => {
+        setIsFilterBarDragging(false);
+        filterDragRef.current.hasDragged = false;
+      }, 50);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleFilterBarClickCapture = (e: React.MouseEvent) => {
+    if (filterDragRef.current.hasDragged) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  };
+
+  const scrollFilterBar = (direction: 'left' | 'right') => {
+    if (!filterBarRef.current) return;
+    const distance = 140;
+    filterBarRef.current.scrollBy({
+      left: direction === 'left' ? -distance : distance,
+      behavior: 'smooth',
+    });
+  };
+
   const nodeMap = useMemo(() => {
     return new Map(index.nodes.map((n) => [n.id, n]));
   }, [index.nodes]);
@@ -738,39 +836,75 @@ export const DependencyGraphView: React.FC<DependencyGraphViewProps> = ({
             </span>
           </div>
 
-          {/* Dynamic Role Filter Chips according to current project */}
-          <div className="flex items-center gap-1 bg-surface-container p-0.5 rounded-full border border-outline-variant text-[10px] font-mono overflow-x-auto no-scrollbar scroll-smooth flex-nowrap shrink">
-            {availableRoles.map((role) => {
-              const count = roleCounts[role] || 0;
-              const isSelected = roleFilter === role;
-              const roleTheme = role !== 'all' ? getRoleTheme(role) : null;
+          {/* Dynamic Role Filter Chips with Hold-and-Drag Mouse Scroll & Arrows */}
+          <div className="relative flex items-center min-w-0 max-w-full group">
+            {/* Left Scroll Chevron (shows when scrolled right) */}
+            {canScrollLeft && (
+              <button
+                type="button"
+                onClick={() => scrollFilterBar('left')}
+                className="absolute left-0.5 z-20 w-5 h-5 rounded-full bg-surface-container-highest/95 hover:bg-primary-container text-primary flex items-center justify-center border border-outline-variant shadow-md transition-all hover:scale-110"
+                title="Scroll left"
+              >
+                <span className="material-symbols-outlined text-[13px]">chevron_left</span>
+              </button>
+            )}
 
-              return (
-                <button
-                  key={role}
-                  onClick={() => setRoleFilter(roleFilter === role ? 'all' : role)}
-                  className={`px-2 py-0.5 rounded-full uppercase transition-all flex items-center gap-1 whitespace-nowrap shrink-0 ${
-                    isSelected
-                      ? 'bg-surface-container-highest text-primary font-semibold border border-primary/40 shadow-sm'
-                      : 'text-outline hover:text-on-surface hover:bg-surface-container-high border border-transparent'
-                  }`}
-                >
-                  {roleTheme && (
-                    <span className={`w-1.5 h-1.5 rounded-full ${roleTheme.dot} shrink-0`} />
-                  )}
-                  <span>{role}</span>
-                  <span
-                    className={`text-[9px] px-1 rounded-full ${
+            {/* Draggable & Scrollable Container */}
+            <div
+              ref={filterBarRef}
+              onMouseDown={handleFilterBarMouseDown}
+              onClickCapture={handleFilterBarClickCapture}
+              title="Hold and drag mouse or use wheel to scroll roles"
+              className={`flex items-center gap-1 bg-surface-container p-0.5 rounded-full border border-outline-variant text-[10px] font-mono overflow-x-auto no-scrollbar flex-nowrap shrink select-none transition-all ${
+                isFilterBarDragging ? 'cursor-grabbing' : 'cursor-grab'
+              }`}
+            >
+              {availableRoles.map((role) => {
+                const count = roleCounts[role] || 0;
+                const isSelected = roleFilter === role;
+                const roleTheme = role !== 'all' ? getRoleTheme(role) : null;
+
+                return (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => setRoleFilter(roleFilter === role ? 'all' : role)}
+                    className={`px-2 py-0.5 rounded-full uppercase transition-all flex items-center gap-1 whitespace-nowrap shrink-0 ${
                       isSelected
-                        ? 'bg-primary/20 text-primary font-bold'
-                        : 'bg-surface-container-highest/60 text-outline'
+                        ? 'bg-surface-container-highest text-primary font-semibold border border-primary/40 shadow-sm'
+                        : 'text-outline hover:text-on-surface hover:bg-surface-container-high border border-transparent'
                     }`}
                   >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+                    {roleTheme && (
+                      <span className={`w-1.5 h-1.5 rounded-full ${roleTheme.dot} shrink-0`} />
+                    )}
+                    <span>{role}</span>
+                    <span
+                      className={`text-[9px] px-1 rounded-full ${
+                        isSelected
+                          ? 'bg-primary/20 text-primary font-bold'
+                          : 'bg-surface-container-highest/60 text-outline'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Right Scroll Chevron (shows when overflowed right) */}
+            {canScrollRight && (
+              <button
+                type="button"
+                onClick={() => scrollFilterBar('right')}
+                className="absolute right-0.5 z-20 w-5 h-5 rounded-full bg-surface-container-highest/95 hover:bg-primary-container text-primary flex items-center justify-center border border-outline-variant shadow-md transition-all hover:scale-110"
+                title="Scroll right"
+              >
+                <span className="material-symbols-outlined text-[13px]">chevron_right</span>
+              </button>
+            )}
           </div>
         </div>
 
