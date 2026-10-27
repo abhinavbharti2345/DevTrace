@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CodeModal } from './components/CodeModal.js';
+import { DemoWelcomeModal } from './components/DemoWelcomeModal.js';
 import { Header } from './components/Header.js';
 import { RepoSelectorModal } from './components/RepoSelectorModal.js';
 import { Sidebar } from './components/Sidebar.js';
@@ -29,6 +30,7 @@ export const App: React.FC = () => {
   const [syncMessage, setSyncMessage] = useState<string | undefined>();
   const [isRepoModalOpen, setIsRepoModalOpen] = useState(false);
   const [repoModalError, setRepoModalError] = useState<string | undefined>();
+  const [isDemoWelcomeOpen, setIsDemoWelcomeOpen] = useState(false);
 
   // Feature Explorer state
   const [featureResult, setFeatureResult] = useState<FeatureExplorerResult | null>(null);
@@ -56,6 +58,12 @@ export const App: React.FC = () => {
       try {
         const data = await api.fetchCurrentIndex();
         setIndex(data);
+        if (data && (!data.repoUrl || data.repoName === 'shopsphere-api')) {
+          const hasSeenNotice = sessionStorage.getItem('devtrace_demo_notice_seen');
+          if (!hasSeenNotice) {
+            setIsDemoWelcomeOpen(true);
+          }
+        }
       } catch (err) {
         console.error('Error fetching initial repository index:', err);
       } finally {
@@ -64,6 +72,11 @@ export const App: React.FC = () => {
     }
     init();
   }, []);
+
+  const handleDismissDemoWelcome = () => {
+    sessionStorage.setItem('devtrace_demo_notice_seen', 'true');
+    setIsDemoWelcomeOpen(false);
+  };
 
   // Handlers
   const handleConnectGitHub = async (url: string, branch: string) => {
@@ -300,6 +313,18 @@ export const App: React.FC = () => {
         onLoadDemo={handleLoadDemo}
         isLoading={isActionLoading}
         errorMessage={repoModalError}
+      />
+
+      {/* Demo Onboarding Welcome Modal */}
+      <DemoWelcomeModal
+        isOpen={isDemoWelcomeOpen}
+        onClose={handleDismissDemoWelcome}
+        onOpenRepoSelector={() => {
+          handleDismissDemoWelcome();
+          setIsRepoModalOpen(true);
+        }}
+        onConnectGitHub={handleConnectGitHub}
+        isLoading={isActionLoading}
       />
 
       {/* Code Inspection Modal */}

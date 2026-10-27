@@ -7,8 +7,13 @@ import {
   TestRecommendation,
 } from '../types/index.js';
 
+let configuredBase = import.meta.env.VITE_API_URL || '/api';
+if (configuredBase.startsWith('http') && !configuredBase.endsWith('/api') && !configuredBase.endsWith('/api/')) {
+  configuredBase = configuredBase.replace(/\/+$/, '') + '/api';
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: configuredBase,
   timeout: 45000,
 });
 
