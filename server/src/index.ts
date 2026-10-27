@@ -1,6 +1,9 @@
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express, { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { calculateBlastRadius, recommendTestsForChanges } from './graph/impactEngine.js';
 import { loadBundledDemoRepo } from './ingestion/demoRepoLoader.js';
 import { fetchAndIndexGitHubRepo } from './ingestion/githubFetcher.js';
@@ -151,6 +154,21 @@ app.post('/api/repo/sync', async (_req: Request, res: Response) => {
     res.status(500).json({ error: (err as Error).message });
   }
 });
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Serve frontend static assets in production if client/dist exists
+const clientDistPath = path.resolve(__dirname, '../../client/dist');
+if (fs.existsSync(clientDistPath)) {
+  console.log(`[DevTrace] Serving frontend static assets from: ${clientDistPath}`);
+  app.use(express.static(clientDistPath));
+  app.get('*', (req: Request, res: Response) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(clientDistPath, 'index.html'));
+    }
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`\n🚀 DevTrace Backend Server running at http://localhost:${PORT}`);
