@@ -131,7 +131,11 @@ function findAffectedTests(
       // Heuristic: check if test file name matches the origin file
       for (const origin of originFiles) {
         const originBase = origin.split('/').pop()?.replace(/\.[^.]+$/, '') || '';
-        if (originBase && testPath.includes(originBase)) {
+        const cleanedBase = originBase.replace(/\.(service|controller|route|routes|model|util|helper|component)$/i, '');
+        if (
+          (originBase && testPath.includes(originBase)) ||
+          (cleanedBase && cleanedBase.length > 2 && testPath.includes(cleanedBase))
+        ) {
           recommendations.push({
             testFile: testPath,
             priority: 'HIGH',

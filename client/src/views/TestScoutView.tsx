@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { CodebaseIndex, TestRecommendation } from '../types/index.js';
 
 interface TestScoutViewProps {
@@ -21,6 +21,11 @@ export const TestScoutView: React.FC<TestScoutViewProps> = ({
     [index.files]
   );
 
+  const testFiles = useMemo(
+    () => Object.keys(index.files).filter((f) => index.files[f].isTest),
+    [index.files]
+  );
+
   const nodeMap = useMemo(
     () => new Map(index.nodes.map((n) => [n.id, n])),
     [index.nodes]
@@ -28,6 +33,14 @@ export const TestScoutView: React.FC<TestScoutViewProps> = ({
 
   const [selectedFiles, setSelectedFiles] = useState<string[]>(allSourceFiles.slice(0, 2));
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [hasScanned, setHasScanned] = useState(false);
+
+  // Auto-reset file selection, search, and scan state when repository changes
+  useEffect(() => {
+    setSelectedFiles(allSourceFiles.slice(0, 2));
+    setSearchQuery('');
+    setHasScanned(false);
+  }, [index.repoName, allSourceFiles]);
 
   // Filter files by search query
   const filteredFiles = useMemo(() => {
@@ -65,6 +78,7 @@ export const TestScoutView: React.FC<TestScoutViewProps> = ({
 
   const handleRun = () => {
     if (selectedFiles.length > 0) {
+      setHasScanned(true);
       onRunTestScout(selectedFiles);
     }
   };
@@ -72,8 +86,8 @@ export const TestScoutView: React.FC<TestScoutViewProps> = ({
   return (
     <div className="p-6 space-y-6 max-w-[1400px] mx-auto w-full font-sans select-none">
       {/* Header */}
-      <div>
-        <div className="flex items-center gap-2">
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           <span className="material-symbols-outlined text-secondary text-2xl">science</span>
           <h1 className="text-xl font-semibold text-on-surface tracking-tight">
             TestScout: Targeted Test Selection Matrix
@@ -81,10 +95,38 @@ export const TestScoutView: React.FC<TestScoutViewProps> = ({
           <span className="font-mono text-[10px] text-secondary bg-secondary-container/20 border border-secondary/30 px-1.5 py-0.5 rounded">
             Graph Proximity Ranking
           </span>
+
+          {/* Test Detection Badge */}
+          {testFiles.length > 0 ? (
+            <span className="font-mono text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              🧪 {testFiles.length} Test Suite{testFiles.length > 1 ? 's' : ''} Indexed
+            </span>
+          ) : (
+            <span className="font-mono text-[10px] text-amber-400 bg-amber-950/60 border border-amber-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+              ⚠️ 0 Test Suites Detected in this Repository
+            </span>
+          )}
         </div>
-        <p className="text-xs text-on-surface-variant mt-1">
+        <p className="text-xs text-on-surface-variant">
           Select files you plan to modify. TestScout traverses the module graph to determine exactly which test suites to run, preventing regression failures.
         </p>
+
+        {/* Informational Callout when repository has 0 tests */}
+        {testFiles.length === 0 && (
+          <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl text-xs text-amber-200/90 flex items-start gap-2.5">
+            <span className="material-symbols-outlined text-amber-400 text-[18px] shrink-0 mt-0.5">
+              info
+            </span>
+            <div className="space-y-0.5">
+              <p className="font-medium text-amber-300">No unit test suites found in this repository</p>
+              <p className="text-[11px] text-amber-200/70">
+                DevTrace checks for test files matching <code className="font-mono bg-black/40 text-amber-300 px-1 py-0.2 rounded">*.test.*</code>, <code className="font-mono bg-black/40 text-amber-300 px-1 py-0.2 rounded">*.spec.*</code>, <code className="font-mono bg-black/40 text-amber-300 px-1 py-0.2 rounded">__tests__/</code>, or <code className="font-mono bg-black/40 text-amber-300 px-1 py-0.2 rounded">/test/</code>. If this codebase has no unit test suites, TestScout cannot recommend tests to execute.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -286,15 +328,34 @@ export const TestScoutView: React.FC<TestScoutViewProps> = ({
             ))}
 
             {recommendations.length === 0 && (
-              <div className="text-center py-16 text-outline font-sans text-xs space-y-1">
-                <span className="material-symbols-outlined text-3xl text-outline/60 mb-2">
-                  checklist
-                </span>
-                <p>Select one or more modified files on the left and click "Recommend Tests".</p>
-                <p className="text-[11px] text-outline/70">
-                  TestScout will analyze reverse dependency graphs to find test suites that exercise your code.
-                </p>
-              </div>
+              hasScanned ? (
+                <div className="text-center py-12 px-6 bg-surface-container/60 border border-outline-variant/60 rounded-xl space-y-2.5">
+                  <span className="material-symbols-outlined text-3xl text-amber-400">
+                    search_off
+                  </span>
+                  <h3 className="font-semibold text-on-surface text-sm">
+                    No matching test suites found for the selected files
+                  </h3>
+                  <p className="text-on-surface-variant max-w-md mx-auto text-xs leading-relaxed">
+                    {testFiles.length > 0
+                      ? `Found ${testFiles.length} total test suite${testFiles.length > 1 ? 's' : ''} in this codebase, but none directly or transitively import the ${selectedFiles.length} selected file${selectedFiles.length > 1 ? 's' : ''}.`
+                      : `This repository has 0 indexed unit test files.`}
+                  </p>
+                  <div className="pt-2 text-[11px] text-on-surface-variant/80 font-mono bg-surface-container-high/60 py-1.5 px-3 rounded-lg inline-block border border-outline-variant/30">
+                    💡 Tip: Try selecting core models or shared utilities that are widely exercised across tests.
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-16 text-outline font-sans text-xs space-y-1">
+                  <span className="material-symbols-outlined text-3xl text-outline/60 mb-2">
+                    checklist
+                  </span>
+                  <p>Select one or more modified files on the left and click "Recommend Tests".</p>
+                  <p className="text-[11px] text-outline/70">
+                    TestScout will analyze reverse dependency graphs to find test suites that exercise your code.
+                  </p>
+                </div>
+              )
             )}
           </div>
         </div>
