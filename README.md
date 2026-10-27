@@ -8,15 +8,21 @@
 <div align="center">
 
 [![Live Frontend Deployment](https://img.shields.io/badge/Vercel-Live%20App-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://dev-trace-nine.vercel.app)
+[![Project Demo Video](https://img.shields.io/badge/Demo%20Video-Google%20Drive-FF0000?style=for-the-badge&logo=googledrive&logoColor=white)](https://drive.google.com/file/d/1EprpbGNg2MrArDBTAQyrIdSrXPMh_tGw/view?usp=sharing)
 [![Live Backend API](https://img.shields.io/badge/Render-API%20Live-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://dev-trace-api-m0zb.onrender.com/api/health)
 [![Vitest Unit Tests](https://img.shields.io/badge/Vitest-6%20Passed-55b685?style=for-the-badge&logo=vitest&logoColor=white)](file:///server/src/tests/server.test.ts)
 [![Google Gemini](https://img.shields.io/badge/Google%20Gemini-Grounded%20AI-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React 19](https://img.shields.io/badge/React-19.0-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 
-**[🌐 Live Deployed Application](https://dev-trace-nine.vercel.app)** • **[🚀 Backend Health Endpoint](https://dev-trace-api-m0zb.onrender.com/api/health)** • **[📂 GitHub Repository](https://github.com/abhinavbharti2345/DevTrace)**
+**[🌐 Live Deployed Application](https://dev-trace-nine.vercel.app)** • **[🎬 Project Demo Video](https://drive.google.com/file/d/1EprpbGNg2MrArDBTAQyrIdSrXPMh_tGw/view?usp=sharing)** • **[🚀 Backend Health Endpoint](https://dev-trace-api-m0zb.onrender.com/api/health)** • **[📂 GitHub Repository](https://github.com/abhinavbharti2345/DevTrace)**
 
 </div>
+
+---
+
+> [!TIP]
+> **🎬 Official Project Demonstration Video**: [Watch the End-Term Evaluation Video on Google Drive](https://drive.google.com/file/d/1EprpbGNg2MrArDBTAQyrIdSrXPMh_tGw/view?usp=sharing) — comprehensive walkthrough of AST parsing, AI Feature Explorer, interactive BlastRadius ripple graphs, TestScout regression targeting, and GitHub repository ingestion.
 
 ---
 
